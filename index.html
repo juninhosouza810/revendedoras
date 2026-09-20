@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ficha de Cadastro de Revendedora</title>
+<title>Manu Rubi Semi Jóias — Cadastro de Revendedora</title>
+<link rel="icon" type="image/png" href="/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -63,8 +64,15 @@
     padding:0 1.25rem;
   }
   header{
-    padding:3.2rem 0 1.6rem;
+    padding:2rem 0 1.6rem;
     text-align:center;
+  }
+  .logo{
+    display:block;
+    width:170px;
+    max-width:60%;
+    height:auto;
+    margin:0 auto 0.2rem;
   }
   .eyebrow{
     font-size:0.72rem;
@@ -315,6 +323,7 @@
 <div class="wrap">
 
   <header>
+    <img class="logo" src="/logo.png" alt="Manu Rubi Semi Jóias">
     <div class="eyebrow">PRÉ&#8209;CADASTRO DE REVENDEDORA(O)</div>
     <h1>Faça parte da <em>nossa seleção</em></h1>
     <p class="lede">Preencha a ficha abaixo com atenção. Ao final, você recebe uma cópia em PDF e o cadastro é enviado para nossa equipe.</p>
@@ -419,8 +428,23 @@
     </fieldset>
 
     <fieldset>
-      <legend><span class="num">04</span> Dados comerciais</legend>
-      <p class="section-note">Preencha apenas se você revende como pessoa jurídica.</p>
+      <legend><span class="num">04</span> Experiência e dados comerciais</legend>
+      <div class="field">
+        <label>Você já trabalhou com Semi Jóias ou tem experiência com vendas? <span class="req">*</span></label>
+        <div class="choice-group inline">
+          <label class="choice"><input type="radio" name="experiencia" value="Sim" required> Sim</label>
+          <label class="choice"><input type="radio" name="experiencia" value="Não" required> Não</label>
+        </div>
+      </div>
+      <div class="field">
+        <label for="experienciaDetalhes">Se sim, conte um pouco sobre sua experiência</label>
+        <textarea id="experienciaDetalhes" name="experienciaDetalhes"></textarea>
+      </div>
+      <div class="field">
+        <label for="outrasMarcas">Já revende outras marcas de semijoias? Quais?</label>
+        <textarea id="outrasMarcas" name="outrasMarcas"></textarea>
+      </div>
+      <p class="section-note">Razão social e CNPJ: preencha apenas se você revende como pessoa jurídica.</p>
       <div class="row2">
         <div class="field">
           <label for="razaoSocial">Razão social</label>
@@ -431,10 +455,6 @@
           <input type="text" id="cnpj" name="cnpj" inputmode="numeric" placeholder="00.000.000/0000-00">
         </div>
       </div>
-      <div class="field">
-        <label for="outrasMarcas">Já revende outras marcas de semijoias? Quais?</label>
-        <textarea id="outrasMarcas" name="outrasMarcas"></textarea>
-      </div>
     </fieldset>
 
     <fieldset>
@@ -444,15 +464,6 @@
         <div class="choice-group">
           <label class="choice"><input type="radio" name="modalidade" value="Compra direta (peças pagas no ato)" required> Compra direta (peças pagas no ato)</label>
           <label class="choice"><input type="radio" name="modalidade" value="Consignação / maleta (paga o que vender)" required> Consignação / maleta (paga o que vender)</label>
-        </div>
-      </div>
-      <div class="field">
-        <label>Forma de pagamento preferida <span class="req">*</span></label>
-        <div class="choice-group inline">
-          <label class="choice"><input type="radio" name="pagamento" value="Pix" required> Pix</label>
-          <label class="choice"><input type="radio" name="pagamento" value="Cartão" required> Cartão</label>
-          <label class="choice"><input type="radio" name="pagamento" value="Boleto" required> Boleto</label>
-          <label class="choice"><input type="radio" name="pagamento" value="Dinheiro" required> Dinheiro</label>
         </div>
       </div>
     </fieldset>
@@ -482,7 +493,7 @@
     <button class="secondary" type="button" id="newFormBtn">Preencher novo cadastro</button>
   </div>
 
-  <footer>Ficha de Cadastro de Revendedora(o) — uso interno de pré-cadastro.</footer>
+  <footer>Manu Rubi Semi Jóias — ficha de pré-cadastro de revendedora(o).</footer>
 </div>
 
 <script>
@@ -528,16 +539,36 @@ function buildData(){
     instagram: val('instagram'),
     facebook: val('facebook'),
     indicadoPor: val('indicadoPor'),
+    experiencia: radioVal('experiencia'),
+    experienciaDetalhes: val('experienciaDetalhes'),
     razaoSocial: val('razaoSocial'),
     cnpj: val('cnpj'),
     outrasMarcas: val('outrasMarcas'),
     modalidade: radioVal('modalidade'),
-    pagamento: radioVal('pagamento'),
     data: todayBR()
   };
 }
 
-function buildPdfBlob(d){
+let logoDataUrl = null;
+async function loadLogo(){
+  if(logoDataUrl) return logoDataUrl;
+  try{
+    const resp = await fetch('/logo.png');
+    if(!resp.ok) throw new Error('logo');
+    const blob = await resp.blob();
+    logoDataUrl = await new Promise((res, rej)=>{
+      const r = new FileReader();
+      r.onload = () => res(r.result);
+      r.onerror = () => rej(new Error('logo'));
+      r.readAsDataURL(blob);
+    });
+  }catch(e){
+    logoDataUrl = null;
+  }
+  return logoDataUrl;
+}
+
+function buildPdfBlob(d, logo){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const marginX = 56;
@@ -547,21 +578,23 @@ function buildPdfBlob(d){
   const ink = [43,36,48];
   const soft = [110,100,114];
 
+  const textX = logo ? marginX + 104 : marginX;
+  if(logo){
+    doc.addImage(logo, 'PNG', marginX - 8, 28, 104, 104, 'logo', 'FAST');
+  }
   doc.setFont('times','italic');
   doc.setFontSize(12);
   doc.setTextColor(soft[0],soft[1],soft[2]);
-  doc.text('Pré-cadastro de Revendedora(o)', marginX, y);
-  y += 10;
+  doc.text('Manu Rubi Semi Jóias', textX, 70);
+  doc.setFont('times','normal');
+  doc.setFontSize(20);
+  doc.setTextColor(ink[0],ink[1],ink[2]);
+  doc.text('Ficha de Cadastro de Revendedora(o)', textX, 98);
+  y = 144;
   doc.setDrawColor(gold[0],gold[1],gold[2]);
   doc.setLineWidth(1);
   doc.line(marginX, y, pageW-marginX, y);
   y += 30;
-
-  doc.setFont('times','normal');
-  doc.setFontSize(22);
-  doc.setTextColor(ink[0],ink[1],ink[2]);
-  doc.text('Ficha de Cadastro de Revendedora(o)', marginX, y);
-  y += 34;
 
   function section(title){
     doc.setFont('helvetica','bold');
@@ -612,14 +645,15 @@ function buildPdfBlob(d){
   field('Facebook / outra rede', d.facebook);
   field('Indicado por', d.indicadoPor);
 
-  section('4. Dados comerciais (se pessoa jurídica)');
-  field('Razão social', d.razaoSocial);
-  field('CNPJ', d.cnpj);
+  section('4. Experiência e dados comerciais');
+  field('Já trabalhou com semijoias ou tem experiência com vendas?', d.experiencia);
+  field('Conte sobre sua experiência', d.experienciaDetalhes);
   field('Já revende outras marcas? Quais?', d.outrasMarcas);
+  field('Razão social (se pessoa jurídica)', d.razaoSocial);
+  field('CNPJ', d.cnpj);
 
   section('5. Modalidade de revenda');
   field('Modalidade escolhida', d.modalidade);
-  field('Forma de pagamento preferida', d.pagamento);
 
   section('6. Termo de compromisso');
   doc.setFont('helvetica','normal');
@@ -654,7 +688,8 @@ form.addEventListener('submit', async function(e){
 
   try{
     const d = buildData();
-    const blob = buildPdfBlob(d);
+    const logo = await loadLogo();
+    const blob = buildPdfBlob(d, logo);
     const filename = 'cadastro-' + slug(d.nome) + '.pdf';
 
     const fd = new FormData();
