@@ -1,6 +1,5 @@
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 
-export const config = { runtime: 'edge' };
 
 function getClient() {
   return new S3Client({

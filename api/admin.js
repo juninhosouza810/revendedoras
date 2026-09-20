@@ -1,6 +1,5 @@
 import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3';
 
-export const config = { runtime: 'edge' };
 
 function getClient() {
   return new S3Client({
