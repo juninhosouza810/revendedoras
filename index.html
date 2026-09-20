@@ -316,7 +316,7 @@
 
   <header>
     <div class="eyebrow">PRÉ&#8209;CADASTRO DE REVENDEDORA(O)</div>
-    <h1>Faça parte da <em>nossa seleção</em></h1>
+    <h1>Faça parte da <em>nossa coleção</em></h1>
     <p class="lede">Preencha a ficha abaixo com atenção. Ao final, você recebe uma cópia em PDF e o cadastro é enviado para nossa equipe.</p>
     <div class="divider"></div>
   </header>
@@ -470,7 +470,7 @@
 
     <div class="submit-row">
       <button type="submit" class="primary" id="submitBtn">Enviar cadastro</button>
-      <p class="submit-help">Ao enviar, um PDF com seus dados será baixado e um e-mail para nossa equipe será aberto no seu app de e-mail.</p>
+      <p class="submit-help">Ao enviar, seus dados e o PDF são salvos automaticamente com nossa equipe, e uma cópia do PDF é baixada para você.</p>
       <p class="error-msg" id="errorMsg">Verifique os campos obrigatórios destacados antes de enviar.</p>
     </div>
   </form>
@@ -678,7 +678,7 @@ form.addEventListener('submit', async function(e){
     successBox.classList.add('show');
     window.scrollTo({top:0, behavior:'smooth'});
   }catch(err){
-    errorMsg.textContent = 'Não foi possível enviar seu cadastro agora. Verifique sua conexão e tente novamente.';
+    errorMsg.textContent = 'Não foi possível enviar seu cadastro agora' + (err && err.message ? (': ' + err.message) : '') + '. Tente novamente.';
     errorMsg.style.display = 'block';
   }finally{
     submitBtn.disabled = false;
