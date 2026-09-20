@@ -1,6 +1,5 @@
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 
-
 function getClient() {
   return new S3Client({
     region: 'auto',
@@ -12,31 +11,28 @@ function getClient() {
   });
 }
 
-function checkAuth(request) {
-  const header = request.headers.get('Authorization');
+function checkAuth(req) {
+  const header = req.headers.authorization;
   if (!header || !header.startsWith('Basic ')) return false;
   if (!process.env.ADMIN_PASSWORD) return false;
-  const decoded = atob(header.slice(6));
+  const decoded = Buffer.from(header.slice(6), 'base64').toString('utf8');
   const sep = decoded.indexOf(':');
   const user = decoded.slice(0, sep);
   const pass = decoded.slice(sep + 1);
   return user === 'admin' && pass === process.env.ADMIN_PASSWORD;
 }
 
-function unauthorized() {
-  return new Response('Autenticação necessária', {
-    status: 401,
-    headers: { 'WWW-Authenticate': 'Basic realm="admin"' },
-  });
-}
+export default async function handler(req, res) {
+  if (!checkAuth(req)) {
+    res.setHeader('WWW-Authenticate', 'Basic realm="admin"');
+    res.status(401).send('Autenticação necessária');
+    return;
+  }
 
-export default async function handler(request) {
-  if (!checkAuth(request)) return unauthorized();
-
-  const url = new URL(request.url);
-  const key = url.searchParams.get('key');
-  if (!key || !key.startsWith('cadastros/')) {
-    return new Response('Chave inválida', { status: 400 });
+  const key = req.query.key;
+  if (!key || Array.isArray(key) || !key.startsWith('cadastros/')) {
+    res.status(400).send('Chave inválida');
+    return;
   }
 
   try {
@@ -44,13 +40,12 @@ export default async function handler(request) {
     const obj = await s3.send(
       new GetObjectCommand({ Bucket: process.env.R2_BUCKET_NAME, Key: key })
     );
-    return new Response(obj.Body, {
-      headers: {
-        'content-type': 'application/pdf',
-        'content-disposition': `inline; filename="${key.split('/').pop()}"`,
-      },
-    });
+
+    res.setHeader('content-type', 'application/pdf');
+    res.setHeader('content-disposition', `inline; filename="${key.split('/').pop()}"`);
+    obj.Body.pipe(res);
   } catch (err) {
-    return new Response('Não encontrado', { status: 404 });
+    console.error('Erro em /api/admin-pdf:', err);
+    res.status(404).send('Não encontrado');
   }
 }

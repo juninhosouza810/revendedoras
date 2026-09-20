@@ -1,5 +1,10 @@
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import formidable from 'formidable';
+import fs from 'node:fs/promises';
 
+export const config = {
+  api: { bodyParser: false },
+};
 
 function getClient() {
   return new S3Client({
@@ -12,20 +17,29 @@ function getClient() {
   });
 }
 
-export default async function handler(request) {
-  if (request.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405 });
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    res.status(405).json({ ok: false, error: 'Method not allowed' });
+    return;
   }
 
   try {
-    const form = await request.formData();
-    const pdfFile = form.get('pdf');
-    const nome = (form.get('nome') || 'revendedora').toString();
+    const form = formidable({ multiples: false });
+    const [fields, files] = await form.parse(req);
 
-    if (!pdfFile || typeof pdfFile === 'string') {
-      return json({ ok: false, error: 'PDF ausente no envio.' }, 400);
+    const getField = (k) => {
+      const v = fields[k];
+      return Array.isArray(v) ? (v[0] || '') : (v || '');
+    };
+
+    const pdfEntry = files.pdf;
+    const pdfFile = Array.isArray(pdfEntry) ? pdfEntry[0] : pdfEntry;
+    if (!pdfFile) {
+      res.status(400).json({ ok: false, error: 'PDF ausente no envio.' });
+      return;
     }
 
+    const nome = getField('nome') || 'revendedora';
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
     const slug =
       nome
@@ -36,12 +50,11 @@ export default async function handler(request) {
         .toLowerCase() || 'revendedora';
     const key = `cadastros/${stamp}-${slug}.pdf`;
 
-    const pdfBytes = new Uint8Array(await pdfFile.arrayBuffer());
+    const pdfBuffer = await fs.readFile(pdfFile.filepath);
 
     const meta = {};
-    for (const [k, v] of form.entries()) {
-      if (k === 'pdf') continue;
-      meta[k] = v.toString();
+    for (const k of Object.keys(fields)) {
+      meta[k] = getField(k);
     }
     meta.enviadoEm = new Date().toISOString();
     meta.arquivoPdf = key;
@@ -53,7 +66,7 @@ export default async function handler(request) {
       new PutObjectCommand({
         Bucket: bucket,
         Key: key,
-        Body: pdfBytes,
+        Body: pdfBuffer,
         ContentType: 'application/pdf',
       })
     );
@@ -67,17 +80,18 @@ export default async function handler(request) {
     );
 
     if (process.env.RESEND_API_KEY && process.env.ADMIN_EMAIL) {
-      sendEmail(meta, pdfBytes, key).catch((e) => console.error('Falha ao enviar e-mail:', e));
+      sendEmail(meta, pdfBuffer, key).catch((e) => console.error('Falha ao enviar e-mail:', e));
     }
 
-    return json({ ok: true });
+    res.status(200).json({ ok: true });
   } catch (err) {
-    return json({ ok: false, error: String(err && err.message ? err.message : err) }, 500);
+    console.error('Erro em /api/submit:', err);
+    res.status(500).json({ ok: false, error: String(err && err.message ? err.message : err) });
   }
 }
 
-async function sendEmail(meta, pdfBytes, key) {
-  const base64 = arrayBufferToBase64(pdfBytes);
+async function sendEmail(meta, pdfBuffer, key) {
+  const base64 = pdfBuffer.toString('base64');
   const filename = key.split('/').pop();
   const bodyText = Object.entries(meta)
     .map(([k, v]) => `${k}: ${v}`)
@@ -103,20 +117,4 @@ async function sendEmail(meta, pdfBytes, key) {
   if (!resp.ok) {
     throw new Error(`Resend respondeu ${resp.status}: ${await resp.text()}`);
   }
-}
-
-function arrayBufferToBase64(bytes) {
-  let binary = '';
-  const chunkSize = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
-  }
-  return btoa(binary);
-}
-
-function json(obj, status = 200) {
-  return new Response(JSON.stringify(obj), {
-    status,
-    headers: { 'content-type': 'application/json; charset=utf-8' },
-  });
 }
